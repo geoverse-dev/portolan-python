@@ -10,14 +10,14 @@ GitHub:
 
 ```bash
 python -m pip install \
-  https://github.com/jemacchi/portolan-python/releases/download/v0.1.8/portolan_python-0.1.8-py3-none-any.whl
+  https://github.com/geoverse-dev/portolan-python/releases/download/v0.1.9/portolan_python-0.1.9-py3-none-any.whl
 ```
 
 You can also install the source at a specific tag:
 
 ```bash
 python -m pip install \
-  "portolan-python @ git+https://github.com/jemacchi/portolan-python.git@v0.1.8"
+  "portolan-python @ git+https://github.com/geoverse-dev/portolan-python.git@v0.1.9"
 ```
 
 ## List collections and assets
