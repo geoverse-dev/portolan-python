@@ -4,6 +4,8 @@
 It is the place for catalog access, STAC traversal, HREF resolution, asset
 classification, registry access, and validation.
 
+The current public API is read-only. It does not author or modify catalogs.
+
 The library does not process geospatial data files. It can identify a
 GeoParquet, COG, or PMTiles asset from metadata, but it does not read the rows,
 pixels, or tiles inside that asset.
@@ -23,9 +25,9 @@ pixels, or tiles inside that asset.
 - Reading raster pixels or GeoParquet rows.
 - Creating PMTiles or thumbnails.
 - Extracting data from WFS, ArcGIS, or CARTO.
-- Publishing catalogs to GeoServer.
+- Publishing catalogs to an application server.
 - Running a server process for a catalog.
 
 Applications can combine this library with specialized tools. For example,
-`portolan-geoserver` uses this library to understand catalogs and uses
-`python-geoservercloud` to call GeoServer.
+the external [`geoserver-portolan`](https://github.com/geoverse-dev/geoserver-portolan)
+plugin uses the SDK as a catalog reader.

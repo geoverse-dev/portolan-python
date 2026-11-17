@@ -4,6 +4,8 @@ A lightweight Python implementation of the Portolan specification.
 
 `portolan-python` provides the core domain model, catalog access, validation, and conformance APIs required to work with Portolan catalogs from Python applications.
 
+The current library is read-only. It does not create or modify catalogs.
+
 The project intentionally focuses on **Portolan itself**, rather than on geospatial data processing.
 
 It does not aim to replace GDAL, Rasterio, GeoPandas, GeoParquet tooling, tile generators, GIS servers, or other specialized geospatial software.
@@ -23,7 +25,7 @@ Without a reusable core library, every integration would need to independently i
 * link and HREF resolution;
 * metadata validation;
 * conformance rules;
-* serialization and deserialization.
+* metadata loading and typed access.
 
 `portolan-python` provides that reusable implementation.
 
@@ -35,15 +37,14 @@ For example, this library may determine that an asset is a GeoParquet asset and 
 
 Likewise, it may identify a COG asset without becoming a raster processing library.
 
-## Scope
+## Current scope
 
 `portolan-python` is responsible for the Portolan domain model and specification semantics.
 
-Expected responsibilities include:
+Current responsibilities include:
 
 * opening Portolan catalogs;
-* creating Portolan catalogs;
-* reading and writing Portolan/STAC metadata;
+* reading Portolan/STAC metadata;
 * navigating catalogs, collections, items, assets, and links;
 * resolving relative and absolute HREFs;
 * exposing Portolan extensions and metadata;
@@ -102,7 +103,6 @@ In particular, the core should not be responsible for:
 * extracting data from WFS;
 * extracting data from ArcGIS;
 * extracting data from CARTO;
-* publishing data to GeoServer;
 * running pygeoapi;
 * managing QGIS projects.
 
@@ -129,7 +129,7 @@ Portolan should be opinionated about **what constitutes a conformant Portolan ca
                              │
               ┌──────────────┼──────────────┐
               ▼              ▼              ▼
-         portolan-cli   portolan-geoserver  other apps
+         portolan-cli    integrations    other apps
 ```
 
 ## Relationship with `portolan-cli`
@@ -148,29 +148,12 @@ should be CLI representations of APIs provided by the Portolan Python ecosystem.
 
 The CLI should remain an interface layer.
 
-## Relationship with `portolan-geoserver`
+## Potential consumers
 
-`portolan-geoserver` uses this library to understand Portolan catalogs and uses `python-geoservercloud` to interact with GeoServer.
-
-The responsibilities remain separated:
-
-```text
-portolan-python
-    │
-    │ understands Portolan
-    ▼
-portolan-geoserver
-    │
-    │ maps Portolan resources to GeoServer
-    ▼
-python-geoservercloud
-    │
-    │ manages GeoServer
-    ▼
-GeoServer
-```
-
-`portolan-python` therefore contains no GeoServer-specific logic.
+Python applications and integrations can embed this library without introducing application-specific
+dependencies. The external
+[`geoserver-portolan`](https://github.com/geoverse-dev/geoserver-portolan)
+plugin is one example of a consumer that uses the SDK.
 
 ## Relationship with `portolan-java`
 
@@ -194,11 +177,17 @@ The Portolan specification remains the source of truth.
 1. Specification first.
 2. Small and stable public API.
 3. No CLI dependency.
-4. No GIS server dependency.
+4. No application-server dependency.
 5. No mandatory geospatial processing stack.
 6. Specialized formats are represented, not reimplemented.
 7. External applications should not need to reimplement Portolan semantics.
 8. The library should be suitable as a dependency of long-lived applications.
+
+## Next steps
+
+Catalog writing is planned but is not part of the current public API. A future implementation must
+define its behavior through shared write, round-trip, and mutation-safety conformance profiles
+before it is published as an SDK capability.
 
 ## Local documentation
 
