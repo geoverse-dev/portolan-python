@@ -1,9 +1,14 @@
-.PHONY: help setup test coverage lint typecheck check build clean
+.PHONY: help setup test coverage lint typecheck check check-conformance build clean
 
 UV ?= uv
+ADAPTER_PYTHON ?= $(UV) run python
+CONFORMANCE_REPOSITORY ?= https://github.com/geoverse-dev/portolan-conformance.git
+CONFORMANCE_VERSION ?= v0.1.0
+CONFORMANCE ?= uvx --from 'git+$(CONFORMANCE_REPOSITORY)@$(CONFORMANCE_VERSION)' portolan-conformance
+CONFORMANCE_REPORT ?= read-profile-report.json
 
 help:
-	@printf '%s\n' 'Targets: setup test coverage lint typecheck check build clean'
+	@printf '%s\n' 'Targets: setup test coverage lint typecheck check check-conformance build clean'
 
 setup:
 	$(UV) sync --extra dev
@@ -21,6 +26,12 @@ typecheck:
 	$(UV) run --extra dev mypy
 
 check: lint typecheck test
+
+check-conformance:
+	$(CONFORMANCE) run \
+		--profile read \
+		--adapter '$(ADAPTER_PYTHON) $(CURDIR)/tests/conformance_adapter.py' \
+		--report '$(CONFORMANCE_REPORT)'
 
 build:
 	$(UV) build

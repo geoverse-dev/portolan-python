@@ -207,4 +207,15 @@ The Portolan specification remains the source of truth.
 - [Development](docs/development.md) lists setup, test, and build commands.
 - [Distribution](docs/distribution.md) explains releases, `pip`, and PyPI publishing.
 
+## Conformance checks
+
+Install the pinned `portolan-conformance` revision from the CI workflow.
+Then run the SDK adapter against Read Profile v1:
+
+```bash
+make check-conformance
+```
+
+The target writes `read-profile-report.json` in the repository root.
+
 ---

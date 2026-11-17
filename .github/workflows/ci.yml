@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install SDK and development tools
+        run: python -m pip install --upgrade ".[dev]"
+
+      - name: Run SDK checks
+        run: |
+          pytest
+          mypy src tests
+          ruff check .
+
+      - name: Check out pinned conformance suite
+        uses: actions/checkout@v6
+        with:
+          repository: geoverse-dev/portolan-conformance
+          ref: v0.1.0
+          path: portolan-conformance
+
+      - name: Install conformance suite
+        run: python -m pip install ./portolan-conformance
+
+      - name: Run SDK Read Profile v1
+        run: make check-conformance ADAPTER_PYTHON=python CONFORMANCE=portolan-conformance
+
+      - name: Upload conformance report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: read-profile-report
+          path: read-profile-report.json

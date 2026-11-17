@@ -8,7 +8,15 @@ from typing import Any
 
 import pytest
 
-from portolan import AssetFormat, Catalog, Collection, Item, Validator, is_stac_metadata
+from portolan import (
+    AssetFormat,
+    Catalog,
+    Collection,
+    Item,
+    Validator,
+    is_stac_metadata,
+    open_document,
+)
 
 pytestmark = pytest.mark.unit
 
@@ -193,6 +201,157 @@ def test_collection_item_links_preserve_written_href_and_resolve_against_owner()
     assert link.raw["href"] == "./items/road-a.json"
     assert link.href == "https://example.test/catalog/roads/items/road-a.json"
     assert link.media_type == "application/geo+json"
+    assert link.original_href == "./items/road-a.json"
+
+
+def test_open_document_returns_the_matching_public_model(tmp_path: Path) -> None:
+    documents = [
+        ("catalog.json", {"type": "Catalog", "id": "root", "links": []}, Catalog),
+        ("collection.json", {"type": "Collection", "id": "roads", "links": []}, Collection),
+        ("item.json", {"type": "Feature", "id": "road", "links": []}, Item),
+    ]
+    for name, data, expected_type in documents:
+        path = tmp_path / name
+        _write_json(path, data)
+        assert isinstance(open_document(path.as_uri()), expected_type)
+
+
+def test_document_metadata_and_direct_links_are_available(tmp_path: Path) -> None:
+    _write_json(
+        tmp_path / "catalog.json",
+        {
+            "type": "Catalog",
+            "id": "root",
+            "title": "Root",
+            "description": None,
+            "stac_version": "1.1.0",
+            "stac_extensions": ["https://example.test/ext.json"],
+            "links": [
+                {"rel": "child", "href": "./nested.json"},
+                {"rel": "item", "href": "./direct.json"},
+            ],
+        },
+    )
+    catalog = open_document(tmp_path / "catalog.json")
+    assert isinstance(catalog, Catalog)
+    assert catalog.type == "Catalog"
+    assert catalog.title == "Root"
+    assert catalog.description is None
+    assert catalog.stac_version == "1.1.0"
+    assert catalog.stac_extensions == ("https://example.test/ext.json",)
+    assert [link.original_href for link in catalog.children()] == ["./nested.json"]
+    assert [link.original_href for link in catalog.direct_item_links()] == ["./direct.json"]
+
+
+def test_assets_expose_original_and_resolved_hrefs() -> None:
+    collection = Collection(
+        {
+            "type": "Collection",
+            "id": "roads",
+            "assets": {"data": {"href": "./data.parquet", "roles": ["data"]}},
+        },
+        "https://example.test/catalog/collection.json",
+    )
+    [asset] = list(collection.assets())
+    assert asset.original_href == "./data.parquet"
+    assert asset.href == "https://example.test/catalog/data.parquet"
+
+
+def test_read_models_ignore_malformed_optional_metadata() -> None:
+    catalog = Catalog(
+        {
+            "type": 7,
+            "title": 7,
+            "description": [],
+            "stac_version": {},
+            "stac_extensions": "not-a-list",
+            "links": [
+                None,
+                {"rel": 7, "href": "ignored.json"},
+                {"rel": "child", "href": 7},
+                {"rel": "child", "href": "valid.json", "type": 7, "title": []},
+            ],
+            "assets": {
+                "not-an-object": 7,
+                "missing-href": {},
+                "fallback-type": {
+                    "href": "data.bin",
+                    "media_type": "application/octet-stream",
+                    "roles": "data",
+                    "title": 7,
+                    "description": [],
+                },
+            },
+        },
+        "https://example.test/catalog.json",
+    )
+
+    assert catalog.type == ""
+    assert catalog.title is None
+    assert catalog.description is None
+    assert catalog.stac_version is None
+    assert catalog.stac_extensions == ()
+    [link] = list(catalog.links())
+    assert link.media_type is None
+    assert link.title is None
+    [asset] = list(catalog.assets())
+    assert asset.media_type == "application/octet-stream"
+    assert asset.roles == ()
+    assert asset.title is None
+    assert asset.description is None
+
+
+def test_traversal_stops_at_catalog_cycles(tmp_path: Path) -> None:
+    _write_json(
+        tmp_path / "catalog.json",
+        {
+            "type": "Catalog",
+            "id": "root",
+            "links": [{"rel": "child", "href": "nested.json"}],
+        },
+    )
+    _write_json(
+        tmp_path / "nested.json",
+        {
+            "type": "Catalog",
+            "id": "nested",
+            "links": [
+                {"rel": "child", "href": "catalog.json"},
+                {"rel": "item", "href": "item.json"},
+            ],
+        },
+    )
+
+    catalog = Catalog.open(tmp_path)
+
+    assert list(catalog.collections()) == []
+    assert [link.original_href for link in catalog.item_links()] == ["item.json"]
+
+
+def test_unknown_document_type_and_uri_scheme_are_rejected(tmp_path: Path) -> None:
+    unknown = tmp_path / "unknown.json"
+    _write_json(unknown, {"type": "Unknown", "id": "x"})
+
+    with pytest.raises(ValueError, match="Unsupported STAC document type"):
+        open_document(unknown)
+    with pytest.raises(ValueError, match="Unsupported URI scheme"):
+        Catalog.open("s3://bucket/catalog.json")
+
+
+def test_validator_accepts_absent_optional_links_and_assets() -> None:
+    result = Validator.validate(
+        Catalog(
+            {
+                "type": "Catalog",
+                "stac_version": "1.1.0",
+                "id": "root",
+                "description": "Root",
+            },
+            "file:///catalog.json",
+        )
+    )
+
+    assert result.valid
 
 
 def test_catalog_open_accepts_directory_path(tmp_path: Path) -> None:
@@ -230,6 +389,16 @@ def test_catalog_open_accepts_string_and_file_uri_sources(tmp_path: Path) -> Non
 
     assert from_string.id == "demo"
     assert from_uri.id == "demo"
+
+
+@pytest.mark.parametrize(
+    "source",
+    [r"C:\catalog\catalog.json", r"\\server\share\catalog.json"],
+)
+def test_windows_paths_are_treated_as_paths_instead_of_uri_schemes(source: str) -> None:
+    from portolan.catalog import _source_to_href
+
+    assert _source_to_href(source).startswith("file:")
 
 
 def test_collection_and_item_open_accept_directory_or_file_sources(tmp_path: Path) -> None:
