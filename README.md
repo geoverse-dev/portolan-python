@@ -206,6 +206,7 @@ The Portolan specification remains the source of truth.
 - [Examples](docs/examples.md) shows basic API usage.
 - [Development](docs/development.md) lists setup, test, and build commands.
 - [Distribution](docs/distribution.md) explains releases, `pip`, and PyPI publishing.
+- [Conformance](docs/conformance.md) explains SDK conformance and catalog validation.
 
 ## Conformance checks
 
@@ -217,5 +218,9 @@ make check-conformance
 ```
 
 The target writes `read-profile-report.json` in the repository root.
+It verifies SDK reading behavior only.
+It does not validate full catalog conformance.
+
+See [Conformance](docs/conformance.md) for the supported profile and Rashid integration.
 
 ---
