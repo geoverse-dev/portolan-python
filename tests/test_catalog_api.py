@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import threading
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
 
@@ -202,6 +204,55 @@ def test_collection_item_links_preserve_written_href_and_resolve_against_owner()
     assert link.href == "https://example.test/catalog/roads/items/road-a.json"
     assert link.media_type == "application/geo+json"
     assert link.original_href == "./items/road-a.json"
+
+
+def test_remote_links_resolve_against_final_url_after_redirect() -> None:
+    catalog_bytes = json.dumps(
+        {
+            "type": "Catalog",
+            "id": "root",
+            "links": [{"rel": "child", "href": "collection.json"}],
+        }
+    ).encode()
+    collection_bytes = json.dumps(
+        {"type": "Collection", "id": "roads", "links": []}
+    ).encode()
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_GET(self) -> None:  # noqa: N802
+            if self.path == "/entry":
+                self.send_response(302)
+                self.send_header("Location", "/published/catalog.json")
+                self.end_headers()
+                return
+            content = {
+                "/published/catalog.json": catalog_bytes,
+                "/published/collection.json": collection_bytes,
+            }.get(self.path)
+            if content is None:
+                self.send_error(404)
+                return
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(content)
+
+        def log_message(self, format: str, *args: object) -> None:
+            pass
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    thread = threading.Thread(target=server.serve_forever)
+    thread.start()
+    try:
+        origin = f"http://127.0.0.1:{server.server_port}"
+        catalog = Catalog.open(f"{origin}/entry")
+
+        assert catalog.href == f"{origin}/published/catalog.json"
+        assert [collection.id for collection in catalog.collections()] == ["roads"]
+    finally:
+        server.shutdown()
+        thread.join()
+        server.server_close()
 
 
 def test_open_document_returns_the_matching_public_model(tmp_path: Path) -> None:

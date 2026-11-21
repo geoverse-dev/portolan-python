@@ -12,6 +12,7 @@ from portolan import (
     AuthoringError,
     Catalog,
     CatalogGraph,
+    Collection,
     StacDocument,
     WritePlanner,
     open_document,
@@ -25,6 +26,7 @@ OPERATIONS = frozenset(
         "children",
         "collections",
         "items",
+        "items_recursive",
         "assets",
         "links",
         "plan_write",
@@ -70,6 +72,11 @@ def _operate(operation: str, uri: str) -> JsonObject:
         return {"entries": sorted(entries, key=lambda entry: (entry["id"], entry["uri"]))}
     if operation == "items":
         return {"entries": _linked_entries(document, "item")}
+    if operation == "items_recursive":
+        if not isinstance(document, (Catalog, Collection)):
+            return {"entries": []}
+        entries = [_entry(open_document(link.href)) for link in document.item_links()]
+        return {"entries": sorted(entries, key=lambda entry: (entry["id"], entry["uri"]))}
     if operation == "assets":
         raw_assets = document.data.get("assets")
         entries = []

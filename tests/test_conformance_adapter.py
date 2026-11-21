@@ -76,6 +76,54 @@ def test_adapter_delegates_write_planning_to_sdk() -> None:
     ]
 
 
+def test_adapter_distinguishes_direct_and_recursive_items(tmp_path: Path) -> None:
+    collection = tmp_path / "collection.json"
+    year = tmp_path / "years" / "2025" / "catalog.json"
+    item = tmp_path / "years" / "2025" / "item.json"
+    year.parent.mkdir(parents=True)
+    collection.write_text(
+        json.dumps(
+            {
+                "type": "Collection",
+                "id": "observations",
+                "links": [{"rel": "child", "href": "years/2025/catalog.json"}],
+            }
+        ),
+        encoding="utf-8",
+    )
+    year.write_text(
+        json.dumps(
+            {
+                "type": "Catalog",
+                "id": "2025",
+                "links": [{"rel": "item", "href": "item.json"}],
+            }
+        ),
+        encoding="utf-8",
+    )
+    item.write_text(
+        json.dumps({"type": "Feature", "id": "observation-2025", "links": []}),
+        encoding="utf-8",
+    )
+
+    direct = _invoke(
+        {"protocol_version": "1", "operation": "items", "uri": collection.as_uri()}
+    )
+    recursive = _invoke(
+        {
+            "protocol_version": "1",
+            "operation": "items_recursive",
+            "uri": collection.as_uri(),
+        }
+    )
+
+    assert direct == {"status": "ok", "result": {"entries": []}}
+    assert recursive == {
+        "status": "ok",
+        "result": {"entries": [{"id": "observation-2025", "uri": item.as_uri()}]},
+    }
+
+
 @pytest.mark.parametrize(
     ("payload", "code"),
     [

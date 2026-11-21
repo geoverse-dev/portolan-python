@@ -4,6 +4,9 @@
 The read profile checks metadata access and navigation.
 The write profile checks in-memory authoring and storage-independent planning.
 
+The development read profile distinguishes direct item links from recursive collection items.
+It also checks HTTP redirects and strict preservation of JSON scalar types.
+
 Run the released conformance pin with:
 
 ```bash

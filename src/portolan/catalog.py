@@ -145,7 +145,7 @@ class Catalog(StacDocument):
     def open(cls, source: str | Path) -> Catalog:
         """Open a local or remote Portolan catalog document."""
         href = _source_to_href(source)
-        data = _read_json_href(href)
+        data, href = _read_json_document(href)
         return cls(data, href)
 
     def collections(self) -> Iterator[Collection]:
@@ -164,15 +164,15 @@ class Collection(StacDocument):
     def open(cls, source: str | Path) -> Collection:
         """Open a local or remote STAC Collection document."""
         href = _source_to_href(source, default_document="collection.json")
-        data = _read_json_href(href)
+        data, href = _read_json_document(href)
         return cls(data, href)
 
     def items(self) -> Iterator[Item]:
         """Yield linked items from this collection."""
         for link in self.item_links():
-            data = _read_json_href(link.href)
+            data, item_href = _read_json_document(link.href)
             if data.get("type") == "Feature":
-                yield Item(data, link.href)
+                yield Item(data, item_href)
 
     def item_links(self) -> Iterator[Link]:
         """Yield item links owned by this collection.
@@ -191,13 +191,13 @@ class Item(StacDocument):
     def open(cls, source: str | Path) -> Item:
         """Open a local or remote STAC Item document."""
         href = _source_to_href(source, default_document="item.json")
-        data = _read_json_href(href)
+        data, href = _read_json_document(href)
         return cls(data, href)
 
 def open_document(source: str | Path) -> Catalog | Collection | Item:
     """Open any supported STAC metadata document using its declared type."""
     href = _source_to_href(source)
-    data = _read_json_href(href)
+    data, href = _read_json_document(href)
     document_type = data.get("type")
     if document_type == "Catalog":
         return Catalog(data, href)
@@ -228,12 +228,12 @@ def _collections_from_catalog(
     for link in _links(data, href):
         if link.rel != "child":
             continue
-        child = _read_json_href(link.href)
+        child, child_href = _read_json_document(link.href)
         child_type = child.get("type")
         if child_type == "Collection":
-            yield Collection(child, link.href)
+            yield Collection(child, child_href)
         elif child_type == "Catalog":
-            yield from _collections_from_catalog(child, link.href, visited)
+            yield from _collections_from_catalog(child, child_href, visited)
 
 
 def _item_links_from_document(data: JsonObject, href: str, visited: set[str]) -> Iterator[Link]:
@@ -244,9 +244,9 @@ def _item_links_from_document(data: JsonObject, href: str, visited: set[str]) ->
         if link.rel == "item":
             yield link
         elif link.rel == "child":
-            child = _read_json_href(link.href)
+            child, child_href = _read_json_document(link.href)
             if child.get("type") == "Catalog":
-                yield from _item_links_from_document(child, link.href, visited)
+                yield from _item_links_from_document(child, child_href, visited)
 
 
 def _links(data: JsonObject, document_href: str) -> Iterator[Link]:
@@ -317,19 +317,26 @@ def _source_to_href(source: str | Path, *, default_document: str = "catalog.json
 
 
 def _read_json_href(href: str) -> JsonObject:
+    return _read_json_document(href)[0]
+
+
+def _read_json_document(href: str) -> tuple[JsonObject, str]:
     parsed = urlparse(href)
     if parsed.scheme in {"http", "https"}:
         request = Request(href, headers={"User-Agent": "portolan-python"})
         with urlopen(request, timeout=30) as response:
             data = json.loads(response.read().decode("utf-8"))
+            final_href = response.geturl()
     elif parsed.scheme == "file":
         path = Path(unquote(parsed.path))
         data = json.loads(path.read_text(encoding="utf-8"))
+        final_href = href
     else:
         data = json.loads(Path(href).read_text(encoding="utf-8"))
+        final_href = href
     if not isinstance(data, dict):
         raise TypeError(f"Expected JSON object from {href}")
-    return data
+    return data, final_href
 
 
 def _resolve_href(document_href: str, href: str) -> str:
