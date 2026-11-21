@@ -240,13 +240,22 @@ def _roundtrip(plan: Any) -> JsonObject:
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_bytes(content)
         documents = []
+        documentation = []
         for operation in operations:
             key = operation.key
-            if operation.kind != "put" or not key.endswith(".json"):
+            if operation.kind != "put":
+                continue
+            if not key.endswith(".json"):
+                documentation.append(
+                    {"key": key, "content": operation.content.decode("utf-8")}
+                )
                 continue
             document = open_document(root / key)
             documents.append({"key": key, "document": document.data})
-    return {"profile_version": "1", "documents": documents}
+    result: JsonObject = {"profile_version": "1", "documents": documents}
+    if documentation:
+        result["documentation"] = documentation
+    return result
 
 
 def _error_code(error: Exception) -> str:

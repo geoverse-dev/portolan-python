@@ -350,9 +350,13 @@ class WritePlanner:
 
 def serialize_document(document: JsonObject) -> bytes:
     """Serialize one document deterministically as UTF-8 JSON."""
-    return (
-        json.dumps(document, ensure_ascii=False, sort_keys=True, separators=(",", ":")) + "\n"
-    ).encode("utf-8")
+    try:
+        serialized = json.dumps(
+            document, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+        )
+    except (TypeError, ValueError) as exc:
+        raise AuthoringError("WRITE_ERROR", "document cannot be serialized as JSON") from exc
+    return (serialized + "\n").encode("utf-8")
 
 
 def _preflight(graph: CatalogGraph) -> None:

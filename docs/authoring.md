@@ -36,3 +36,6 @@ These checks protect plan construction but do not prove normative conformance.
 Use `rashid` after materialization to validate the complete catalog and its assets.
 
 Storage sinks and automatic storage reconciliation remain outside the SDK.
+
+The [custom sink example](../examples/custom_sink.py) applies a plan through
+application-owned `put` and `delete` methods. The example uses memory and adds no dependency.
