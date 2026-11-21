@@ -4,7 +4,9 @@
 It is the place for catalog access, STAC traversal, HREF resolution, asset
 classification, registry access, and validation.
 
-The current public API is read-only. It does not author or modify catalogs.
+The public API reads catalogs and authors new catalog graphs in memory.
+Authoring produces a storage-independent `WritePlan`; the caller materializes it.
+Editing an existing graph is not supported yet.
 
 The library does not process geospatial data files. It can identify a
 GeoParquet, COG, or PMTiles asset from metadata, but it does not read the rows,
@@ -18,6 +20,8 @@ pixels, or tiles inside that asset.
 - Exposing asset media type, roles, and known Portolan asset format.
 - Loading registry exports and downloading registry catalog snapshots.
 - Validating Portolan and STAC metadata.
+- Building new Portolan 0.3.0 catalog graphs in memory.
+- Producing deterministic PUT-only plans for metadata and caller-supplied documentation.
 
 ## Belongs outside
 
@@ -27,6 +31,7 @@ pixels, or tiles inside that asset.
 - Extracting data from WFS, ArcGIS, or CARTO.
 - Publishing catalogs to an application server.
 - Running a server process for a catalog.
+- Writing a plan to a filesystem, object store, or other destination.
 
 Applications can combine this library with specialized tools. For example,
 the external [`geoserver-portolan`](https://github.com/geoverse-dev/geoserver-portolan)

@@ -2,6 +2,15 @@
 
 from __future__ import annotations
 
+from portolan.authoring import (
+    AuthoringError,
+    CatalogBuilder,
+    CatalogGraph,
+    PutOperation,
+    WritePlan,
+    WritePlanner,
+    serialize_document,
+)
 from portolan.catalog import (
     Asset,
     AssetFormat,
@@ -24,18 +33,25 @@ from portolan.validation import ValidationError, ValidationResult, Validator
 __all__ = [
     "Asset",
     "AssetFormat",
+    "AuthoringError",
     "Catalog",
+    "CatalogBuilder",
+    "CatalogGraph",
     "Collection",
     "DEFAULT_REGISTRY_URL",
     "Item",
     "Link",
+    "PutOperation",
     "RegistryCatalogEntry",
     "StacDocument",
     "ValidationError",
     "ValidationResult",
     "Validator",
+    "WritePlan",
+    "WritePlanner",
     "download_registry_catalog",
     "is_stac_metadata",
     "load_registry_entries",
     "open_document",
+    "serialize_document",
 ]

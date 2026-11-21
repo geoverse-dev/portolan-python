@@ -8,11 +8,27 @@ from json import JSONDecodeError
 from typing import Any
 from urllib.error import HTTPError, URLError
 
-from portolan import Catalog, StacDocument, open_document
+from portolan import (
+    AuthoringError,
+    Catalog,
+    CatalogGraph,
+    StacDocument,
+    WritePlanner,
+    open_document,
+)
 
 JsonObject = dict[str, Any]
 OPERATIONS = frozenset(
-    {"document", "inspect", "children", "collections", "items", "assets", "links"}
+    {
+        "document",
+        "inspect",
+        "children",
+        "collections",
+        "items",
+        "assets",
+        "links",
+        "plan_write",
+    }
 )
 
 
@@ -107,15 +123,36 @@ def _request(value: object) -> JsonObject:
     if value.get("protocol_version") != "1":
         raise ValueError("UNSUPPORTED_PROTOCOL")
     operation = value.get("operation")
-    uri = value.get("uri")
-    if not isinstance(operation, str) or not isinstance(uri, str) or not uri:
+    if not isinstance(operation, str):
         raise ValueError("INVALID_REQUEST")
     if operation not in OPERATIONS:
         raise ValueError("UNSUPPORTED_OPERATION")
+    if operation == "plan_write":
+        input_value = value.get("input")
+        if not isinstance(input_value, dict) or "uri" in value:
+            raise ValueError("INVALID_REQUEST")
+        plan = WritePlanner().plan(CatalogGraph.from_dict(input_value))
+        return {
+            "profile_version": "1",
+            "spec_version": plan.spec_version,
+            "operations": [
+                {
+                    "kind": operation.kind,
+                    "key": operation.key,
+                    "content": operation.content.decode("utf-8"),
+                }
+                for operation in plan.operations
+            ],
+        }
+    uri = value.get("uri")
+    if not isinstance(uri, str) or not uri or "input" in value:
+        raise ValueError("INVALID_REQUEST")
     return _operate(operation, uri)
 
 
 def _error_code(error: Exception) -> str:
+    if isinstance(error, AuthoringError):
+        return error.code
     message = str(error)
     if message in {"INVALID_REQUEST", "UNSUPPORTED_PROTOCOL", "UNSUPPORTED_OPERATION"}:
         return message

@@ -2,9 +2,10 @@
 
 A lightweight Python implementation of the Portolan specification.
 
-`portolan-python` provides the core domain model, catalog access, validation, and conformance APIs required to work with Portolan catalogs from Python applications.
+`portolan-python` provides catalog reading, in-memory authoring, validation, and conformance APIs for Python applications.
 
-The current library is read-only. It does not create or modify catalogs.
+The authoring API creates Portolan 0.3.0 metadata and storage-independent write plans.
+Applications remain responsible for materializing those plans.
 
 The project intentionally focuses on **Portolan itself**, rather than on geospatial data processing.
 
@@ -52,6 +53,8 @@ Current responsibilities include:
 * checking Portolan conformance;
 * exposing asset type and media-type information;
 * handling specification versions;
+* authoring new catalog graphs in memory;
+* producing deterministic PUT-only write plans;
 * providing stable Python APIs for applications built on Portolan.
 
 A conceptual API may look like:
@@ -185,13 +188,13 @@ The Portolan specification remains the source of truth.
 
 ## Next steps
 
-Catalog writing is planned but is not part of the current public API. A future implementation must
-define its behavior through shared write, round-trip, and mutation-safety conformance profiles
-before it is published as an SDK capability.
+The current authoring API creates new graphs and plans their outputs without storage access.
+Editing loaded graphs and safe deletion planning remain future conformance rounds.
 
 ## Local documentation
 
 - [Scope](docs/scope.md) defines what belongs in this core library.
+- [Authoring](docs/authoring.md) shows in-memory graphs and storage-independent plans.
 - [Examples](docs/examples.md) shows basic API usage.
 - [Development](docs/development.md) lists setup, test, and build commands.
 - [Distribution](docs/distribution.md) explains releases, `pip`, and PyPI publishing.
@@ -200,14 +203,15 @@ before it is published as an SDK capability.
 ## Conformance checks
 
 Install the pinned `portolan-conformance` revision from the CI workflow.
-Then run the SDK adapter against Read Profile v1:
+Then run the SDK adapter against the released read profile:
 
 ```bash
 make check-conformance
 ```
 
 The target writes `read-profile-report.json` in the repository root.
-It verifies SDK reading behavior only.
+During development, `make check-conformance-write` covers the W01–W15 Round 1 cases
+when `CONFORMANCE` points to a checkout that contains Write Profile v1.
 It does not validate full catalog conformance.
 
 See [Conformance](docs/conformance.md) for the supported profile and Rashid integration.

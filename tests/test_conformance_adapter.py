@@ -1,4 +1,4 @@
-"""Tests for the development-only Read Profile adapter."""
+"""Tests for the development-only conformance adapter."""
 
 from __future__ import annotations
 
@@ -43,6 +43,37 @@ def test_adapter_delegates_document_reading_to_sdk(tmp_path: Path) -> None:
     )
 
     assert response == {"status": "ok", "result": {"document": document}}
+
+
+def test_adapter_delegates_write_planning_to_sdk() -> None:
+    response = _invoke(
+        {
+            "protocol_version": "1",
+            "operation": "plan_write",
+            "input": {
+                "spec_version": "0.3.0",
+                "documents": [
+                    {
+                        "key": "catalog.json",
+                        "document": {
+                            "type": "Catalog",
+                            "stac_version": "1.1.0",
+                            "id": "demo",
+                            "title": "Demo",
+                            "description": "Demo catalog.",
+                        },
+                    }
+                ],
+            },
+        }
+    )
+
+    assert response["status"] == "ok"
+    assert response["result"]["profile_version"] == "1"
+    assert response["result"]["spec_version"] == "0.3.0"
+    assert [operation["key"] for operation in response["result"]["operations"]] == [
+        "catalog.json"
+    ]
 
 
 @pytest.mark.parametrize(
