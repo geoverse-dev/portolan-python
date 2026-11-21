@@ -188,8 +188,9 @@ The Portolan specification remains the source of truth.
 
 ## Next steps
 
-The current authoring API creates new graphs and plans their outputs without storage access.
-Editing loaded graphs and safe deletion planning remain future conformance rounds.
+The authoring API creates and edits graphs without storage access.
+Deletion planning requires an explicit snapshot of previously managed metadata keys.
+Storage materialization remains application-owned.
 
 ## Local documentation
 

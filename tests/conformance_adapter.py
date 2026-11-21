@@ -4,15 +4,19 @@ from __future__ import annotations
 
 import json
 import sys
+import tempfile
 from json import JSONDecodeError
+from pathlib import Path
 from typing import Any
 from urllib.error import HTTPError, URLError
 
 from portolan import (
     AuthoringError,
     Catalog,
+    CatalogEditor,
     CatalogGraph,
     Collection,
+    ManagedDocument,
     StacDocument,
     WritePlanner,
     open_document,
@@ -30,6 +34,8 @@ OPERATIONS = frozenset(
         "assets",
         "links",
         "plan_write",
+        "edit_plan",
+        "roundtrip",
     }
 )
 
@@ -134,20 +140,32 @@ def _request(value: object) -> JsonObject:
         raise ValueError("INVALID_REQUEST")
     if operation not in OPERATIONS:
         raise ValueError("UNSUPPORTED_OPERATION")
-    if operation == "plan_write":
+    if operation in {"plan_write", "edit_plan", "roundtrip"}:
         input_value = value.get("input")
         if not isinstance(input_value, dict) or "uri" in value:
             raise ValueError("INVALID_REQUEST")
-        plan = WritePlanner().plan(CatalogGraph.from_dict(input_value))
+        graph_value = input_value.get("graph", input_value)
+        if not isinstance(graph_value, dict):
+            raise ValueError("INVALID_REQUEST")
+        graph = CatalogGraph.from_dict(graph_value)
+        if operation != "plan_write":
+            graph = _apply_changes(graph, input_value.get("changes", []))
+        prior = input_value.get("prior_managed_keys", [])
+        prefix = input_value.get("key_prefix", "")
+        if not isinstance(prior, list) or not all(isinstance(key, str) for key in prior):
+            raise ValueError("INVALID_REQUEST")
+        if not isinstance(prefix, str):
+            raise ValueError("INVALID_REQUEST")
+        plan = WritePlanner().plan(
+            graph, prior_managed_keys=tuple(prior), key_prefix=prefix
+        )
+        if operation == "roundtrip":
+            return _roundtrip(plan)
         return {
             "profile_version": "1",
             "spec_version": plan.spec_version,
             "operations": [
-                {
-                    "kind": operation.kind,
-                    "key": operation.key,
-                    "content": operation.content.decode("utf-8"),
-                }
+                _plan_operation(operation)
                 for operation in plan.operations
             ],
         }
@@ -155,6 +173,80 @@ def _request(value: object) -> JsonObject:
     if not isinstance(uri, str) or not uri or "input" in value:
         raise ValueError("INVALID_REQUEST")
     return _operate(operation, uri)
+
+
+def _apply_changes(graph: CatalogGraph, changes: object) -> CatalogGraph:
+    if not isinstance(changes, list):
+        raise ValueError("INVALID_REQUEST")
+    editor = CatalogEditor(graph)
+    for change in changes:
+        if not isinstance(change, dict):
+            raise ValueError("INVALID_REQUEST")
+        kind = change.get("kind")
+        key = change.get("key")
+        if not isinstance(kind, str) or not isinstance(key, str):
+            raise ValueError("INVALID_REQUEST")
+        if kind == "set_field":
+            field = change.get("field")
+            if not isinstance(field, str) or "value" not in change:
+                raise ValueError("INVALID_REQUEST")
+            editor.set_field(key, field, change["value"])
+        elif kind == "add_document":
+            document = change.get("document")
+            parent_key = change.get("parent_key")
+            relation = change.get("relation", "child")
+            if not isinstance(document, dict) or not isinstance(relation, str):
+                raise ValueError("INVALID_REQUEST")
+            if parent_key is not None and not isinstance(parent_key, str):
+                raise ValueError("INVALID_REQUEST")
+            editor.add_document(ManagedDocument(key, document, parent_key, relation))
+        elif kind == "remove_document":
+            editor.remove_document(key)
+        elif kind == "set_asset":
+            asset_key = change.get("asset_key")
+            asset = change.get("asset")
+            if not isinstance(asset_key, str) or not isinstance(asset, dict):
+                raise ValueError("INVALID_REQUEST")
+            editor.set_asset(key, asset_key, asset)
+        elif kind == "remove_asset":
+            asset_key = change.get("asset_key")
+            if not isinstance(asset_key, str):
+                raise ValueError("INVALID_REQUEST")
+            editor.remove_asset(key, asset_key)
+        else:
+            raise ValueError("INVALID_REQUEST")
+    return editor.build()
+
+
+def _plan_operation(operation: Any) -> JsonObject:
+    kind = operation.kind
+    key = operation.key
+    result: JsonObject = {"kind": kind, "key": key}
+    content = getattr(operation, "content", None)
+    if kind == "put" and isinstance(content, bytes):
+        result["content"] = content.decode("utf-8")
+    return result
+
+
+def _roundtrip(plan: Any) -> JsonObject:
+    operations = plan.operations
+    with tempfile.TemporaryDirectory() as directory:
+        root = Path(directory)
+        for operation in operations:
+            content = getattr(operation, "content", None)
+            if not isinstance(content, bytes):
+                continue
+            target = root / operation.key
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(content)
+        documents = []
+        for operation in operations:
+            key = operation.key
+            if operation.kind != "put" or not key.endswith(".json"):
+                continue
+            document = open_document(root / key)
+            documents.append({"key": key, "document": document.data})
+    return {"profile_version": "1", "documents": documents}
 
 
 def _error_code(error: Exception) -> str:

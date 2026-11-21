@@ -6,7 +6,7 @@ classification, registry access, and validation.
 
 The public API reads catalogs and authors new catalog graphs in memory.
 Authoring produces a storage-independent `WritePlan`; the caller materializes it.
-Editing an existing graph is not supported yet.
+The copy-on-write editor changes managed documents and assets without mutating the source graph.
 
 The library does not process geospatial data files. It can identify a
 GeoParquet, COG, or PMTiles asset from metadata, but it does not read the rows,
@@ -22,6 +22,7 @@ pixels, or tiles inside that asset.
 - Validating Portolan and STAC metadata.
 - Building new Portolan 0.3.0 catalog graphs in memory.
 - Producing deterministic PUT-only plans for metadata and caller-supplied documentation.
+- Planning explicit metadata deletions from a caller-supplied managed-key snapshot.
 
 ## Belongs outside
 

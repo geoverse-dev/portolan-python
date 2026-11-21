@@ -153,6 +153,89 @@ class CatalogBuilder:
         )
 
 
+class CatalogEditor:
+    """Edit a catalog graph through copy-on-write operations."""
+
+    def __init__(self, graph: CatalogGraph) -> None:
+        self._spec_version = graph.spec_version
+        self._documents = {entry.key: deepcopy(entry) for entry in graph.documents}
+        self._documentation = {entry.key: deepcopy(entry) for entry in graph.documentation}
+
+    def set_field(self, key: str, field: str, value: Any) -> CatalogEditor:
+        entry = self._document(key)
+        document = deepcopy(entry.document)
+        document[field] = deepcopy(value)
+        self._documents[key] = ManagedDocument(key, document, entry.parent_key, entry.relation)
+        return self
+
+    def add_document(self, entry: ManagedDocument) -> CatalogEditor:
+        if entry.key in self._documents or entry.key in self._documentation:
+            raise AuthoringError("DUPLICATE_OUTPUT_KEY", "logical output keys must be unique")
+        self._documents[entry.key] = deepcopy(entry)
+        return self
+
+    def remove_document(self, key: str) -> CatalogEditor:
+        if key == "catalog.json":
+            raise AuthoringError("MISSING_REQUIRED_METADATA", "catalog.json root is required")
+        if key not in self._documents:
+            raise AuthoringError("INVALID_REQUEST", "managed document does not exist")
+        descendants = {key}
+        changed = True
+        while changed:
+            changed = False
+            for entry in self._documents.values():
+                if entry.parent_key in descendants and entry.key not in descendants:
+                    descendants.add(entry.key)
+                    changed = True
+        for document_key in descendants:
+            del self._documents[document_key]
+        self._documentation = {
+            doc_key: entry
+            for doc_key, entry in self._documentation.items()
+            if entry.owner_key not in descendants
+        }
+        return self
+
+    def set_asset(self, key: str, asset_key: str, value: JsonObject) -> CatalogEditor:
+        entry = self._document(key)
+        document = deepcopy(entry.document)
+        assets = document.get("assets")
+        if assets is None:
+            assets = {}
+        if not isinstance(assets, dict):
+            raise AuthoringError("WRITE_ERROR", "assets must be an object")
+        assets = deepcopy(assets)
+        assets[asset_key] = deepcopy(value)
+        document["assets"] = assets
+        self._documents[key] = ManagedDocument(key, document, entry.parent_key, entry.relation)
+        return self
+
+    def remove_asset(self, key: str, asset_key: str) -> CatalogEditor:
+        entry = self._document(key)
+        document = deepcopy(entry.document)
+        assets = document.get("assets")
+        if not isinstance(assets, dict) or asset_key not in assets:
+            raise AuthoringError("INVALID_REQUEST", "managed asset does not exist")
+        assets = deepcopy(assets)
+        del assets[asset_key]
+        document["assets"] = assets
+        self._documents[key] = ManagedDocument(key, document, entry.parent_key, entry.relation)
+        return self
+
+    def build(self) -> CatalogGraph:
+        return CatalogGraph(
+            self._spec_version,
+            tuple(self._documents.values()),
+            tuple(self._documentation.values()),
+        )
+
+    def _document(self, key: str) -> ManagedDocument:
+        try:
+            return self._documents[key]
+        except KeyError as exc:
+            raise AuthoringError("INVALID_REQUEST", "managed document does not exist") from exc
+
+
 @dataclass(frozen=True)
 class PutOperation:
     """One intended metadata or documentation write."""
@@ -163,18 +246,41 @@ class PutOperation:
 
 
 @dataclass(frozen=True)
+class DeleteOperation:
+    """One explicit deletion of previously managed metadata."""
+
+    key: str
+    kind: str = "delete"
+    content: bytes = b""
+
+
+@dataclass(frozen=True)
 class WritePlan:
     """An immutable snapshot of intended outputs that performs no I/O."""
 
     spec_version: str
-    operations: tuple[PutOperation, ...]
+    operations: tuple[PutOperation | DeleteOperation, ...]
 
 
 class WritePlanner:
     """Create deterministic PUT-only plans for Portolan 0.3.0 metadata."""
 
-    def plan(self, graph: CatalogGraph) -> WritePlan:
+    def plan(
+        self,
+        graph: CatalogGraph,
+        *,
+        prior_managed_keys: tuple[str, ...] = (),
+        key_prefix: str = "",
+    ) -> WritePlan:
         _preflight(graph)
+        if key_prefix and not _safe_output_key(key_prefix):
+            raise AuthoringError(
+                "INVALID_OUTPUT_PATH", "output prefix must be a relative POSIX path"
+            )
+        if any(not _safe_output_key(key) for key in prior_managed_keys):
+            raise AuthoringError(
+                "INVALID_OUTPUT_PATH", "prior managed keys must be relative POSIX paths"
+            )
         documents = [
             ManagedDocument(
                 entry.key,
@@ -222,13 +328,22 @@ class WritePlanner:
             )
             owner.document["links"] = links
 
-        operations = [
-            PutOperation(entry.key, serialize_document(_with_normalized_links(entry.document)))
+        operations: list[PutOperation | DeleteOperation] = [
+            PutOperation(
+                _prefixed_key(key_prefix, entry.key),
+                serialize_document(_with_normalized_links(entry.document)),
+            )
             for entry in documents
         ]
         operations.extend(
-            PutOperation(entry.key, entry.content.encode("utf-8"))
+            PutOperation(_prefixed_key(key_prefix, entry.key), entry.content.encode("utf-8"))
             for entry in graph.documentation
+        )
+        target_keys = {operation.key for operation in operations}
+        operations.extend(
+            DeleteOperation(key)
+            for key in prior_managed_keys
+            if key not in target_keys
         )
         return WritePlan(graph.spec_version, tuple(sorted(operations, key=lambda item: item.key)))
 
@@ -317,3 +432,7 @@ def _safe_output_key(value: str) -> bool:
         and path.as_posix() == value
         and all(part not in {"", ".", ".."} for part in path.parts)
     )
+
+
+def _prefixed_key(prefix: str, key: str) -> str:
+    return f"{prefix.rstrip('/')}/{key}" if prefix else key
