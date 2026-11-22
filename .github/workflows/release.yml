@@ -4,6 +4,7 @@ on:
   push:
     tags:
       - "v[0-9]+.[0-9]+.[0-9]+"
+      - "v[0-9]+.[0-9]+.[0-9]+rc[0-9]+"
   workflow_dispatch:
     inputs:
       tag:
@@ -30,7 +31,7 @@ jobs:
           cache: pip
 
       - name: Install build and test tools
-        run: python -m pip install --upgrade build twine ".[dev]"
+        run: python -m pip install --upgrade build twine uv ".[dev]"
 
       - name: Check tag and package versions
         shell: bash
@@ -38,8 +39,15 @@ jobs:
           package_version="$(python -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')"
           test "${RELEASE_TAG}" = "v${package_version}"
 
-      - name: Test
-        run: pytest
+      - name: Run SDK checks
+        run: |
+          pytest -m "not integration"
+          pytest -m integration --no-cov
+          mypy src tests
+          ruff check .
+
+      - name: Run conformance profiles
+        run: make check-conformance-all ADAPTER_PYTHON=python
 
       - name: Build distributions
         run: python -m build
@@ -61,7 +69,7 @@ jobs:
           if gh release view "${RELEASE_TAG}" >/dev/null 2>&1; then
             gh release upload "${RELEASE_TAG}" dist/* --clobber
           else
-            gh release create "${RELEASE_TAG}" dist/* --generate-notes --verify-tag
+            gh release create "${RELEASE_TAG}" dist/* --generate-notes --prerelease
           fi
 
   publish-pypi:

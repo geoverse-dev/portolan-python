@@ -812,7 +812,7 @@ wheels = [
 
 [[package]]
 name = "portolan-python"
-version = "0.1.9"
+version = "1.0.0rc1"
 source = { editable = "." }
 
 [package.optional-dependencies]
