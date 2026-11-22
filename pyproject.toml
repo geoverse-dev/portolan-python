@@ -13,8 +13,10 @@ dependencies = []
 [project.optional-dependencies]
 dev = [
   "mypy>=1.18.0",
+  "numpy<2.3 ; python_full_version >= '3.11'",
   "pytest>=8.0.0",
   "pytest-cov>=6.0.0",
+  "rashid==0.4.0 ; python_full_version >= '3.11'",
   "ruff>=0.13.0",
 ]
 
@@ -23,6 +25,7 @@ testpaths = ["tests"]
 addopts = "--cov=portolan --cov-report=term-missing --cov-fail-under=85"
 markers = [
   "unit: fast isolated tests",
+  "integration: tests multiple public components together",
 ]
 
 [tool.coverage.run]
@@ -44,6 +47,10 @@ select = ["E", "F", "I", "B", "C4", "UP"]
 python_version = "3.10"
 strict = true
 files = ["src", "tests"]
+
+[[tool.mypy.overrides]]
+module = ["numpy", "numpy.*", "rashid", "rashid.*"]
+follow_imports = "skip"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/portolan"]

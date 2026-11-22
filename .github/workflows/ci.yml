@@ -20,9 +20,12 @@ jobs:
 
       - name: Run SDK checks
         run: |
-          pytest
+          pytest -m "not integration"
           mypy src tests
           ruff check .
+
+      - name: Validate written catalogs with Rashid
+        run: pytest -m integration --no-cov
 
       - name: Check out pinned conformance suite
         uses: actions/checkout@v6
