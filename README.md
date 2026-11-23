@@ -191,7 +191,8 @@ The Portolan specification remains the source of truth.
 The authoring API creates and edits graphs without storage access.
 Deletion planning requires an explicit snapshot of previously managed metadata keys.
 Storage materialization remains application-owned.
-Round 3 hardens fidelity, deterministic planning, failure handling, and documentation round trips.
+Write Profile v1.1 also covers complete structural links and copy-on-write
+documentation changes.
 
 ## Local documentation
 

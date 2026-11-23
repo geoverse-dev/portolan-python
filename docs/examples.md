@@ -5,19 +5,17 @@ contents of geospatial assets.
 
 ## Install a released wheel
 
-Until the package is published on PyPI, install a tagged release directly from
-GitHub:
+Install the current release candidate from PyPI:
 
 ```bash
-python -m pip install \
-  https://github.com/geoverse-dev/portolan-python/releases/download/v0.1.9/portolan_python-0.1.9-py3-none-any.whl
+python -m pip install portolan-python==1.0.0rc3
 ```
 
-You can also install the source at a specific tag:
+You can also install its source from the matching tag:
 
 ```bash
 python -m pip install \
-  "portolan-python @ git+https://github.com/geoverse-dev/portolan-python.git@v0.1.9"
+  "portolan-python @ git+https://github.com/geoverse-dev/portolan-python.git@v1.0.0rc3"
 ```
 
 ## List collections and assets
