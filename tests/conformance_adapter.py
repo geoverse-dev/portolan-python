@@ -16,6 +16,7 @@ from portolan import (
     CatalogEditor,
     CatalogGraph,
     Collection,
+    DocumentationEntry,
     ManagedDocument,
     StacDocument,
     WritePlanner,
@@ -162,7 +163,7 @@ def _request(value: object) -> JsonObject:
         if operation == "roundtrip":
             return _roundtrip(plan)
         return {
-            "profile_version": "1",
+            "profile_version": "1.1",
             "spec_version": plan.spec_version,
             "operations": [
                 _plan_operation(operation)
@@ -195,11 +196,16 @@ def _apply_changes(graph: CatalogGraph, changes: object) -> CatalogGraph:
             document = change.get("document")
             parent_key = change.get("parent_key")
             relation = change.get("relation", "child")
+            link_title = change.get("link_title")
             if not isinstance(document, dict) or not isinstance(relation, str):
                 raise ValueError("INVALID_REQUEST")
             if parent_key is not None and not isinstance(parent_key, str):
                 raise ValueError("INVALID_REQUEST")
-            editor.add_document(ManagedDocument(key, document, parent_key, relation))
+            if link_title is not None and not isinstance(link_title, str):
+                raise ValueError("INVALID_REQUEST")
+            editor.add_document(
+                ManagedDocument(key, document, parent_key, relation, link_title)
+            )
         elif kind == "remove_document":
             editor.remove_document(key)
         elif kind == "set_asset":
@@ -213,6 +219,23 @@ def _apply_changes(graph: CatalogGraph, changes: object) -> CatalogGraph:
             if not isinstance(asset_key, str):
                 raise ValueError("INVALID_REQUEST")
             editor.remove_asset(key, asset_key)
+        elif kind == "set_documentation":
+            owner_key = change.get("owner_key")
+            relation = change.get("rel")
+            content = change.get("content")
+            media_type = change.get("media_type", "text/markdown")
+            if (
+                not isinstance(owner_key, str)
+                or not isinstance(relation, str)
+                or not isinstance(content, str)
+                or not isinstance(media_type, str)
+            ):
+                raise ValueError("INVALID_REQUEST")
+            editor.set_documentation(
+                DocumentationEntry(owner_key, key, relation, content, media_type)
+            )
+        elif kind == "remove_documentation":
+            editor.remove_documentation(key)
         else:
             raise ValueError("INVALID_REQUEST")
     return editor.build()
@@ -252,7 +275,7 @@ def _roundtrip(plan: Any) -> JsonObject:
                 continue
             document = open_document(root / key)
             documents.append({"key": key, "document": document.data})
-    result: JsonObject = {"profile_version": "1", "documents": documents}
+    result: JsonObject = {"profile_version": "1.1", "documents": documents}
     if documentation:
         result["documentation"] = documentation
     return result

@@ -205,15 +205,14 @@ Round 3 hardens fidelity, deterministic planning, failure handling, and document
 ## Conformance checks
 
 Install the pinned `portolan-conformance` revision from the CI workflow.
-Then run the SDK adapter against the released read profile:
+Then run the SDK adapter against the released read and write profiles:
 
 ```bash
 make check-conformance
 ```
 
-The target writes `read-profile-report.json` in the repository root.
-During development, `make check-conformance-write` covers the W01–W15 Round 1 cases
-when `CONFORMANCE` points to a checkout that contains Write Profile v1.
+The target writes `read-profile-report.json` and `write-profile-report.json`.
+Use `make check-conformance-write` to run only Write Profile v1.1.
 It does not validate full catalog conformance.
 
 See [Conformance](docs/conformance.md) for the supported profile and Rashid integration.

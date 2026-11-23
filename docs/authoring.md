@@ -21,9 +21,14 @@ for operation in plan.operations:
 `CatalogGraph.from_dict()` imports an existing STAC dictionary graph.
 It preserves unknown document fields and existing asset references.
 The planner adds required structural links and the pinned Portolan 0.3.0 schema URI.
+It adds the root catalog's `root` link and titles generated `child` and `item` links.
+Generated `item` links use `application/geo+json`.
+Set `ManagedDocument.link_title` when an item has no `properties.title`.
 
 New graph plans contain PUT operations only.
-`CatalogEditor` applies copy-on-write field, document, and asset changes.
+`CatalogEditor` applies copy-on-write field, document, asset, and documentation changes.
+Use `set_documentation()` and `remove_documentation()` for files such as
+`README.md` and `AGENTS.md`.
 When the caller supplies `prior_managed_keys`, the planner can add DELETE operations
 for metadata that the caller explicitly identifies as previously managed.
 It never infers deletions by scanning storage and never deletes asset data implicitly.

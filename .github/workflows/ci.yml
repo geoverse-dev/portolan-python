@@ -31,18 +31,20 @@ jobs:
         uses: actions/checkout@v6
         with:
           repository: geoverse-dev/portolan-conformance
-          ref: v0.2.0
+          ref: v0.3.0
           path: portolan-conformance
 
       - name: Install conformance suite
         run: python -m pip install ./portolan-conformance
 
-      - name: Run SDK Read Profile v1
+      - name: Run SDK conformance profiles
         run: make check-conformance ADAPTER_PYTHON=python CONFORMANCE=portolan-conformance
 
       - name: Upload conformance report
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: read-profile-report
-          path: read-profile-report.json
+          name: conformance-reports
+          path: |
+            read-profile-report.json
+            write-profile-report.json

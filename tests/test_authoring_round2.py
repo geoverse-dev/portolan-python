@@ -2,7 +2,17 @@ from __future__ import annotations
 
 import json
 
-from portolan import CatalogBuilder, CatalogEditor, CatalogGraph, ManagedDocument, WritePlanner
+import pytest
+
+from portolan import (
+    AuthoringError,
+    CatalogBuilder,
+    CatalogEditor,
+    CatalogGraph,
+    DocumentationEntry,
+    ManagedDocument,
+    WritePlanner,
+)
 
 
 def _root() -> CatalogGraph:
@@ -98,3 +108,57 @@ def test_repeated_planning_is_stable_and_side_effect_free() -> None:
     graph = CatalogEditor(_root()).add_document(_collection()).build()
 
     assert WritePlanner().plan(graph) == WritePlanner().plan(graph)
+
+
+def test_editor_adds_replaces_and_removes_documentation_copy_on_write() -> None:
+    original = _root()
+    first = DocumentationEntry("catalog.json", "README.md", "describedby", "# First\n")
+    replacement = DocumentationEntry("catalog.json", "README.md", "describedby", "# Second\n")
+
+    added = CatalogEditor(original).set_documentation(first).build()
+    replaced = CatalogEditor(added).set_documentation(replacement).build()
+    removed = CatalogEditor(replaced).remove_documentation("README.md").build()
+
+    assert original.documentation == ()
+    assert added.documentation == (first,)
+    assert replaced.documentation == (replacement,)
+    assert removed.documentation == ()
+
+
+def test_editor_rejects_documentation_with_missing_owner() -> None:
+    entry = DocumentationEntry("missing.json", "README.md", "describedby", "# Demo\n")
+
+    with pytest.raises(AuthoringError, match="owner") as raised:
+        CatalogEditor(_root()).set_documentation(entry)
+
+    assert raised.value.code == "MISSING_REQUIRED_METADATA"
+
+
+def test_item_link_uses_geojson_media_type_and_explicit_title() -> None:
+    item = ManagedDocument(
+        "roads/road-1.json",
+        {
+            "type": "Feature",
+            "stac_version": "1.1.0",
+            "id": "road-1",
+            "collection": "roads",
+            "geometry": None,
+            "bbox": None,
+            "properties": {},
+        },
+        "roads/collection.json",
+        "item",
+        "Road segment 1",
+    )
+    graph = CatalogEditor(_root()).add_document(_collection()).add_document(item).build()
+
+    operations = {operation.key: operation for operation in WritePlanner().plan(graph).operations}
+    collection = json.loads(operations["roads/collection.json"].content)
+    link = next(link for link in collection["links"] if link["rel"] == "item")
+
+    assert link == {
+        "href": "road-1.json",
+        "rel": "item",
+        "title": "Road segment 1",
+        "type": "application/geo+json",
+    }

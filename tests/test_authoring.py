@@ -45,7 +45,10 @@ def test_builder_creates_an_in_memory_graph_and_plan_without_io(tmp_path: Path) 
     assert json.loads(plan.operations[0].content) == {
         "description": "An in-memory catalog.",
         "id": "demo",
-        "links": [{"href": "catalog.json", "rel": "self", "type": "application/json"}],
+        "links": [
+            {"href": "catalog.json", "rel": "root", "type": "application/json"},
+            {"href": "catalog.json", "rel": "self", "type": "application/json"},
+        ],
         "stac_extensions": [
             "https://schemas.portolan-sdi.org/portolan/v0.3.0/schema.json"
         ],
@@ -88,8 +91,10 @@ def test_graph_import_preserves_unknown_fields_and_builds_structural_links() -> 
     assert root["x-vendor"] == {"enabled": True, "values": [1, None, "á"]}
     assert {link["rel"]: link["href"] for link in root["links"]} == {
         "child": "vectors/roads/collection.json",
+        "root": "catalog.json",
         "self": "catalog.json",
     }
+    assert next(link for link in root["links"] if link["rel"] == "child")["title"] == "Roads"
     assert {link["rel"]: link["href"] for link in collection["links"]} == {
         "parent": "../../catalog.json",
         "root": "../../catalog.json",

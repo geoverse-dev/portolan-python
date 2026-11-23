@@ -1,6 +1,6 @@
 # Conformance
 
-`portolan-python` implements SDK Read Profile v1 and Write Profile v1 Round 1.
+`portolan-python` implements SDK Read Profile v1 and Write Profile v1.1.
 The read profile checks metadata access and navigation.
 The write profile checks in-memory authoring and storage-independent planning.
 
@@ -14,19 +14,17 @@ make check-conformance
 ```
 
 The command downloads the pinned `portolan-conformance` release.
-Until that release contains Write Profile v1, this target runs the read profile only.
-It writes `read-profile-report.json`.
+It runs both profiles and writes `read-profile-report.json` and
+`write-profile-report.json`.
 
-Run the development write profile against a local Conformance checkout:
+Run only the write profile against a local Conformance checkout:
 
 ```bash
 make check-conformance-write \
   CONFORMANCE=../portolan-conformance/.venv/bin/portolan-conformance
 ```
 
-After the next Conformance release, update the pin and use `make check-conformance-all`.
-
-A passing report confirms the tested read behavior.
+A passing report confirms the tested SDK behavior.
 It does not confirm that a catalog conforms to the Portolan specification.
 
 ## Validate a catalog
@@ -56,7 +54,7 @@ if report.errors:
 | Profile | Status | Purpose |
 |---|---|---|
 | SDK Read Profile v1 | Supported | Read and navigate STAC metadata consistently. |
-| SDK Write Profile v1, Round 1 | Supported | Author new graphs and produce deterministic PUT-only plans. |
+| SDK Write Profile v1.1 | Supported | Author and edit graphs, documentation, and deterministic PUT/DELETE plans. |
 | Metadata Validation Profile v1 | Not implemented | Test embedded SDK metadata validation. |
 
 Python users can call Rashid directly, so `portolan-python` does not duplicate its normative rules.

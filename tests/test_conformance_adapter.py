@@ -69,7 +69,7 @@ def test_adapter_delegates_write_planning_to_sdk() -> None:
     )
 
     assert response["status"] == "ok"
-    assert response["result"]["profile_version"] == "1"
+    assert response["result"]["profile_version"] == "1.1"
     assert response["result"]["spec_version"] == "0.3.0"
     assert [operation["key"] for operation in response["result"]["operations"]] == [
         "catalog.json"

@@ -30,6 +30,7 @@ class ManagedDocument:
     document: JsonObject
     parent_key: str | None = None
     relation: str = "child"
+    link_title: str | None = None
 
 
 @dataclass(frozen=True)
@@ -70,12 +71,15 @@ class CatalogGraph:
             document = raw.get("document")
             parent_key = raw.get("parent_key")
             relation = raw.get("relation", "child")
+            link_title = raw.get("link_title")
             if (
                 not isinstance(key, str)
                 or not isinstance(document, dict)
                 or parent_key is not None
                 and not isinstance(parent_key, str)
                 or not isinstance(relation, str)
+                or link_title is not None
+                and not isinstance(link_title, str)
             ):
                 raise AuthoringError("INVALID_REQUEST", "invalid document entry")
             documents.append(
@@ -84,6 +88,7 @@ class CatalogGraph:
                     document=deepcopy(document),
                     parent_key=parent_key,
                     relation=relation,
+                    link_title=link_title,
                 )
             )
 
@@ -165,7 +170,9 @@ class CatalogEditor:
         entry = self._document(key)
         document = deepcopy(entry.document)
         document[field] = deepcopy(value)
-        self._documents[key] = ManagedDocument(key, document, entry.parent_key, entry.relation)
+        self._documents[key] = ManagedDocument(
+            key, document, entry.parent_key, entry.relation, entry.link_title
+        )
         return self
 
     def add_document(self, entry: ManagedDocument) -> CatalogEditor:
@@ -196,6 +203,24 @@ class CatalogEditor:
         }
         return self
 
+    def set_documentation(self, entry: DocumentationEntry) -> CatalogEditor:
+        """Add or replace one caller-managed documentation entry."""
+        if entry.owner_key not in self._documents:
+            raise AuthoringError(
+                "MISSING_REQUIRED_METADATA", "documentation owner is not managed"
+            )
+        if entry.key in self._documents:
+            raise AuthoringError("DUPLICATE_OUTPUT_KEY", "logical output keys must be unique")
+        self._documentation[entry.key] = deepcopy(entry)
+        return self
+
+    def remove_documentation(self, key: str) -> CatalogEditor:
+        """Remove one caller-managed documentation entry."""
+        if key not in self._documentation:
+            raise AuthoringError("INVALID_REQUEST", "documentation entry does not exist")
+        del self._documentation[key]
+        return self
+
     def set_asset(self, key: str, asset_key: str, value: JsonObject) -> CatalogEditor:
         entry = self._document(key)
         document = deepcopy(entry.document)
@@ -207,7 +232,9 @@ class CatalogEditor:
         assets = deepcopy(assets)
         assets[asset_key] = deepcopy(value)
         document["assets"] = assets
-        self._documents[key] = ManagedDocument(key, document, entry.parent_key, entry.relation)
+        self._documents[key] = ManagedDocument(
+            key, document, entry.parent_key, entry.relation, entry.link_title
+        )
         return self
 
     def remove_asset(self, key: str, asset_key: str) -> CatalogEditor:
@@ -219,7 +246,9 @@ class CatalogEditor:
         assets = deepcopy(assets)
         del assets[asset_key]
         document["assets"] = assets
-        self._documents[key] = ManagedDocument(key, document, entry.parent_key, entry.relation)
+        self._documents[key] = ManagedDocument(
+            key, document, entry.parent_key, entry.relation, entry.link_title
+        )
         return self
 
     def build(self) -> CatalogGraph:
@@ -287,6 +316,7 @@ class WritePlanner:
                 deepcopy(entry.document),
                 entry.parent_key,
                 entry.relation,
+                entry.link_title,
             )
             for entry in graph.documents
         ]
@@ -301,13 +331,28 @@ class WritePlanner:
             entry.document["stac_extensions"] = normalized_extensions
             links = _document_links(entry.document)
             links.append(_link("self", PurePosixPath(entry.key).name))
-            if entry.key != root.key:
+            if not _has_relation(links, "root"):
                 links.append(_link("root", _relative_href(entry.key, root.key)))
             if entry.parent_key is not None:
                 links.append(_link("parent", _relative_href(entry.key, entry.parent_key)))
                 parent = by_key[entry.parent_key]
                 parent_links = _document_links(parent.document)
-                parent_links.append(_link(entry.relation, _relative_href(parent.key, entry.key)))
+                title = _managed_link_title(entry)
+                if title is None:
+                    raise AuthoringError(
+                        "MISSING_REQUIRED_METADATA", "managed child and item links require a title"
+                    )
+                media_type = (
+                    "application/geo+json" if entry.relation == "item" else "application/json"
+                )
+                parent_links.append(
+                    _link(
+                        entry.relation,
+                        _relative_href(parent.key, entry.key),
+                        media_type,
+                        title,
+                    )
+                )
                 parent.document["links"] = parent_links
                 if (
                     entry.document.get("type") == "Feature"
@@ -418,8 +463,31 @@ def _with_normalized_links(document: JsonObject) -> JsonObject:
     return normalized
 
 
-def _link(relation: str, href: str, media_type: str = "application/json") -> JsonObject:
-    return {"rel": relation, "href": href, "type": media_type}
+def _link(
+    relation: str,
+    href: str,
+    media_type: str = "application/json",
+    title: str | None = None,
+) -> JsonObject:
+    link = {"rel": relation, "href": href, "type": media_type}
+    if title is not None:
+        link["title"] = title
+    return link
+
+
+def _has_relation(links: list[JsonObject], relation: str) -> bool:
+    return any(link.get("rel") == relation for link in links)
+
+
+def _managed_link_title(entry: ManagedDocument) -> str | None:
+    if entry.link_title:
+        return entry.link_title
+    if entry.document.get("type") in {"Catalog", "Collection"}:
+        title = entry.document.get("title")
+    else:
+        properties = entry.document.get("properties")
+        title = properties.get("title") if isinstance(properties, dict) else None
+    return title if isinstance(title, str) and title else None
 
 
 def _relative_href(owner_key: str, target_key: str) -> str:

@@ -3,7 +3,7 @@
 UV ?= uv
 ADAPTER_PYTHON ?= $(UV) run python
 CONFORMANCE_REPOSITORY ?= https://github.com/geoverse-dev/portolan-conformance.git
-CONFORMANCE_VERSION ?= v0.2.0
+CONFORMANCE_VERSION ?= v0.3.0
 CONFORMANCE ?= uvx --from 'git+$(CONFORMANCE_REPOSITORY)@$(CONFORMANCE_VERSION)' portolan-conformance
 CONFORMANCE_REPORT ?= read-profile-report.json
 CONFORMANCE_WRITE_REPORT ?= write-profile-report.json
@@ -28,7 +28,7 @@ typecheck:
 
 check: lint typecheck test
 
-check-conformance: check-conformance-read
+check-conformance: check-conformance-all
 
 check-conformance-all: check-conformance-read check-conformance-write
 

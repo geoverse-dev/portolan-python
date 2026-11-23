@@ -29,20 +29,6 @@ def _conforming_graph() -> CatalogGraph:
                         "id": "sdk-rashid-integration",
                         "title": "SDK Rashid integration",
                         "description": "A catalog written by portolan-python.",
-                        "links": [
-                            {
-                                "rel": "root",
-                                "href": "catalog.json",
-                                "type": "application/json",
-                                "title": "SDK Rashid integration",
-                            },
-                            {
-                                "rel": "child",
-                                "href": "roads/collection.json",
-                                "type": "application/json",
-                                "title": "Roads",
-                            },
-                        ],
                     },
                 },
                 {
