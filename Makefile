@@ -1,11 +1,13 @@
-.PHONY: help setup test coverage lint typecheck check check-conformance check-conformance-read check-conformance-write check-conformance-all build clean
+.PHONY: help setup test coverage lint typecheck check check-conformance check-conformance-read check-conformance-resource-resolution check-conformance-compatibility check-conformance-write check-conformance-all build clean
 
 UV ?= uv
 ADAPTER_PYTHON ?= $(UV) run python
 CONFORMANCE_REPOSITORY ?= https://github.com/geoverse-dev/portolan-conformance.git
-CONFORMANCE_VERSION ?= v0.3.0
+CONFORMANCE_VERSION ?= v0.4.0
 CONFORMANCE ?= uvx --from 'git+$(CONFORMANCE_REPOSITORY)@$(CONFORMANCE_VERSION)' portolan-conformance
 CONFORMANCE_REPORT ?= read-profile-report.json
+CONFORMANCE_RESOURCE_REPORT ?= resource-resolution-profile-report.json
+CONFORMANCE_COMPATIBILITY_REPORT ?= compatibility-profile-report.json
 CONFORMANCE_WRITE_REPORT ?= write-profile-report.json
 
 help:
@@ -30,13 +32,25 @@ check: lint typecheck test
 
 check-conformance: check-conformance-all
 
-check-conformance-all: check-conformance-read check-conformance-write
+check-conformance-all: check-conformance-read check-conformance-resource-resolution check-conformance-compatibility check-conformance-write
 
 check-conformance-read:
 	$(CONFORMANCE) run \
 		--profile read \
 		--adapter '$(ADAPTER_PYTHON) $(CURDIR)/tests/conformance_adapter.py' \
 		--report '$(CONFORMANCE_REPORT)'
+
+check-conformance-resource-resolution:
+	$(CONFORMANCE) run \
+		--profile resource-resolution \
+		--adapter '$(ADAPTER_PYTHON) $(CURDIR)/tests/conformance_adapter.py' \
+		--report '$(CONFORMANCE_RESOURCE_REPORT)'
+
+check-conformance-compatibility:
+	$(CONFORMANCE) run \
+		--profile compatibility \
+		--adapter '$(ADAPTER_PYTHON) $(CURDIR)/tests/conformance_adapter.py' \
+		--report '$(CONFORMANCE_COMPATIBILITY_REPORT)'
 
 check-conformance-write:
 	$(CONFORMANCE) run \

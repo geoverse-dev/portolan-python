@@ -8,4 +8,6 @@ __pycache__/
 .coverage.*
 htmlcov/
 read-profile-report.json
+resource-resolution-profile-report.json
+compatibility-profile-report.json
 write-profile-report.json

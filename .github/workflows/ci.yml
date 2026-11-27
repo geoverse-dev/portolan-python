@@ -31,7 +31,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           repository: geoverse-dev/portolan-conformance
-          ref: v0.3.0
+          ref: v0.4.0
           path: portolan-conformance
 
       - name: Install conformance suite
@@ -47,4 +47,6 @@ jobs:
           name: conformance-reports
           path: |
             read-profile-report.json
+            resource-resolution-profile-report.json
+            compatibility-profile-report.json
             write-profile-report.json

@@ -8,14 +8,14 @@ contents of geospatial assets.
 Install the current release candidate from PyPI:
 
 ```bash
-python -m pip install portolan-python==1.0.0rc3
+python -m pip install portolan-python==1.0.0rc4
 ```
 
 You can also install its source from the matching tag:
 
 ```bash
 python -m pip install \
-  "portolan-python @ git+https://github.com/geoverse-dev/portolan-python.git@v1.0.0rc3"
+  "portolan-python @ git+https://github.com/geoverse-dev/portolan-python.git@v1.0.0rc4"
 ```
 
 ## List collections and assets

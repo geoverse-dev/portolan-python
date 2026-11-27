@@ -212,7 +212,7 @@ Then run the SDK adapter against the released read and write profiles:
 make check-conformance
 ```
 
-The target writes `read-profile-report.json` and `write-profile-report.json`.
+The target writes reports for read, resource resolution, compatibility, and write profiles.
 Use `make check-conformance-write` to run only Write Profile v1.1.
 It does not validate full catalog conformance.
 

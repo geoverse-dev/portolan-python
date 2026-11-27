@@ -1,7 +1,9 @@
 # Conformance
 
-`portolan-python` implements SDK Read Profile v1 and Write Profile v1.1.
+`portolan-python` implements four behavioral profiles from `portolan-conformance` `v0.4.0`.
 The read profile checks metadata access and navigation.
+The resource resolution profile checks deterministic HTTP and URI behavior.
+The compatibility profile checks Portolan 0.2.0 and 0.3.0 reads.
 The write profile checks in-memory authoring and storage-independent planning.
 
 The development read profile distinguishes direct item links from recursive collection items.
@@ -14,8 +16,7 @@ make check-conformance
 ```
 
 The command downloads the pinned `portolan-conformance` release.
-It runs both profiles and writes `read-profile-report.json` and
-`write-profile-report.json`.
+It runs all four profiles and writes one JSON report for each profile.
 
 Run only the write profile against a local Conformance checkout:
 
@@ -54,6 +55,8 @@ if report.errors:
 | Profile | Status | Purpose |
 |---|---|---|
 | SDK Read Profile v1 | Supported | Read and navigate STAC metadata consistently. |
+| Resource Resolution Profile v1 | Supported | Resolve local HTTP resources and stable transport errors. |
+| Compatibility Profile v1 | Supported | Preserve read behavior for Portolan 0.2.0 and 0.3.0. |
 | SDK Write Profile v1.1 | Supported | Author and edit graphs, documentation, and deterministic PUT/DELETE plans. |
 | Metadata Validation Profile v1 | Not implemented | Test embedded SDK metadata validation. |
 
